@@ -152,7 +152,7 @@ row_sums <- rowSums(score_age)
 col_sums <- colSums(score_age)[2:6]
 
 row_total <- sum(rowSums(score_age))
-col_total <- sum(colSums(score_age)[2:6])
+col_total <- sum(colSums(score_age)[2:6])  
 
 row_sums/row_total
 col_sums/col_total 
