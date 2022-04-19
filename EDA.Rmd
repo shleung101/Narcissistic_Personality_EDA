@@ -138,20 +138,34 @@ NPD_group %>% filter(is.na(age), is.na(score))
 ```
 
 
+Trying to create a contingency table with sums and probability
 
 ```{r}
-NPD_group %>% select(age_group, score_group) %>% 
+score_age <- NPD_group %>% select(age_group, score_group) %>% 
   group_by(age_group, score_group) %>% 
   count() %>%
-  pivot_wider(names_from = score_group, values_from = n) %>%
-  as.matrix()    
+  pivot_wider(names_from = score_group, values_from = n)    
 
+score_age
 
+row_sums <- rowSums(score_age)
+col_sums <- colSums(score_age)[2:6]
+
+row_total <- sum(rowSums(score_age))
+col_total <- sum(colSums(score_age)[2:6])
+
+row_sums/row_total
+col_sums/col_total 
+
+score_age["row_sum"] <- row_sums
+score_age["row_prob"] <- row_sums/row_total
+score_age <- rbind(score_age, "col_sum" = col_sums)
+score_age <- rbind(score_age, "col_prob" = col_sums/col_total)
+
+score_age
 
 # col sum and row sum 
 
-
-# NPD_group %>% select(age_group, score_group) %>% group_by(age_group, score_group)
 
 
 ```
