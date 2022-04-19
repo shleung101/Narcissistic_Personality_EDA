@@ -1,0 +1,175 @@
+---
+title: "EDA"
+author: "Serena Leung"
+date: "4/18/2022"
+output: html_document
+---
+
+```{r}
+library(readr)
+NPD <- read_csv("NPD_clean.csv")
+head(NPD)
+```
+########## Plotting Histograms ################
+
+Age: 
+- peak at around 18-20, probably a lot of college students took this survey 
+- skewed towards the younger ages 
+
+
+Score: 
+- skewed towards lower scores (less narcissism)
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+ggplot(NPD, aes(x=age)) + 
+  geom_histogram(bins = 70) + 
+  xlim(1,100)
+
+ggplot(NPD, aes(x=score)) + 
+  geom_histogram() + 
+  xlim(1, 50)
+
+ggplot(NPD, aes(x = elapse)) + 
+  geom_histogram() + 
+  xlim(1, 3000)
+```
+
+########## Summary Statistics ############
+Age:
+- Why is there someone that's 509 years old? 
+- it said ages 14 and below have been omitted from the dataset
+
+Score:
+- how does scoring work? (if answer as narcissist, then give one point)
+- max score = 40
+
+```{r}
+print("Age")
+min(NPD$age)
+max(NPD$age)
+mean(NPD$age)
+
+
+print("Score")
+min(NPD$score)
+max(NPD$score)
+mean(NPD$score)
+```
+```{r}
+age_count <- NPD %>% filter(age < 90 & age > 13) %>% select(age) %>% group_by(age) %>% count()
+
+plot(ecdf(age_count$n))
+
+ggplot(age_count, aes(x=age, n)) + 
+  geom_point() + 
+  xlim(1,100) + 
+  geom_segment(aes(x=14, y = 58, xend = 17, yend = 220, color = "segment")) + 
+  geom_segment(aes(x=15, y = 58, xend = 18, yend = 220, color = "segment"))
+
+
+
+ggplot(age_count, aes(n)) +
+  stat_ecdf(geom = "point") + 
+  xlim(-1,400) + 
+  geom_segment(aes(x=0, y = 0, xend = 30, yend = 0.28, color = "Age 14 - 28"), size = 1.25) + 
+  geom_segment(aes(x=40, y = 0.28, xend = 130, yend = 0.57, color = "Age 29 - 45"), size = 1.25) + 
+  geom_segment(aes(x=145, y = 0.57, xend = 180, yend = 0.72, color = "Age 46 - 53"), size = 1.25) + 
+  geom_segment(aes(x=195, y = 0.72, xend = 250, yend = 0.85, color = "Age 54 - 61"), size = 1.25) +
+  geom_segment(aes(x=270, y = 0.85, xend = 310, yend = 0.9, color = "Age 62 - 65"), size = 1.25) + 
+  geom_segment(aes(x=330, y = 0.9, xend = 400, yend = 1, color = "Age 66 - 72"), size = 1.25) 
+```
+Q: Why are we segmenting by slope?
+
+Age Group Segments:  
+
+* Age 12-28 (1)
+* Age 29-45 (2)
+* Age 46-53 (3)
+* Age 54-61 (4)
+* Age 62-65 (5)
+* Age 66-86 (6)
+
+
+Score Group Segments: 
+
+* Score 0-5 (1)
+* Score 6-14 (2)
+* Score 15-25 (3)
+* Score 26-32 (4)
+* Score 33-40 (5)
+
+```{r}
+score_count <- NPD %>% filter(age < 90 & age > 13) %>% select(score) %>% group_by(score) %>% count()
+
+ggplot(score_count, aes(n)) +
+  stat_ecdf(geom = "point") + 
+  geom_segment(aes(x=0, y = 0, xend = 45, yend = 0.15, color = "Score 1 - 5"), size = 1.25) + 
+  geom_segment(aes(x=60, y = 0.15, xend = 120, yend = 0.38, color = "Score 6 - 14"), size = 1.25) + 
+  geom_segment(aes(x=135, y = 0.37, xend = 290, yend = 0.65, color = "Score 15 - 25"), size = 1.25) + 
+  geom_segment(aes(x=320, y = 0.65, xend = 450, yend = 0.80, color = "Score 26 - 32"), size = 1.25) +
+  geom_segment(aes(x=480, y = 0.83, xend = 570, yend = 1, color = "Score 33 - 40"), size = 1.25) 
+  
+```
+
+############# Mutating to add age group and score group  ###############
+
+```{r}
+NPD_group <- NPD %>% mutate(age_group = case_when(
+        age >= 12 & age <= 28 ~ 1,
+        age >= 29 & age <= 45 ~ 2,
+        age >= 46 & age <= 53 ~ 3,
+        age >= 54 & age <= 61 ~ 4,
+        age >= 62 & age <= 65 ~ 5,
+        age >= 66 & age <= 86 ~ 6), 
+        
+        score_group = case_when(
+          score >= 0 & score <= 5 ~ 1,
+          score >= 6 & score <= 14 ~ 2,
+          score >= 15 & score <= 25 ~ 3,
+          score >= 26 & score <= 32 ~ 4,
+          score >= 33 & score <= 40 ~ 5))
+```
+
+```{r}
+NPD_group %>% filter(is.na(age), is.na(score))
+```
+
+
+
+```{r}
+NPD_group %>% select(age_group, score_group) %>% 
+  group_by(age_group, score_group) %>% 
+  count() %>%
+  pivot_wider(names_from = score_group, values_from = n) %>%
+  as.matrix()
+
+
+
+# col sum and row sum 
+rowsum()
+
+# NPD_group %>% select(age_group, score_group) %>% group_by(age_group, score_group)
+
+
+```
+
+
+
+
+
+######## Calculate Entropy ############
+
+
+
+What do I want to do? (focus on age and score)
+- summary statistics (age and score) 
+- regular plotting to figure out any obvious trends (hist, geom_point... )
+- age: create age groups?
+- plot histogram using bins by age groups
+- contingency table
+- calculate entropy
+
+
