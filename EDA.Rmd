@@ -8,7 +8,7 @@ output: html_document
 ```{r}
 library(readr)
 NPD <- read_csv("NPD_clean.csv")
-head(NPD)
+head(NPD)  
 ```
 ########## Plotting Histograms ################
 
