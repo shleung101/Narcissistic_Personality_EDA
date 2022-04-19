@@ -144,7 +144,7 @@ NPD_group %>% select(age_group, score_group) %>%
   group_by(age_group, score_group) %>% 
   count() %>%
   pivot_wider(names_from = score_group, values_from = n) %>%
-  as.matrix()  
+  as.matrix()    
 
 
 
