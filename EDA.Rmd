@@ -75,7 +75,7 @@ ggplot(age_count, aes(n)) +
   stat_ecdf(geom = "point") + 
   xlim(-1,400) + 
   geom_segment(aes(x=0, y = 0, xend = 30, yend = 0.28, color = "Age 14 - 28"), size = 1.25) + 
-  geom_segment(aes(x=40, y = 0.28, xend = 130, yend = 0.57, color = "Age 29 - 45"), size = 1.25) + 
+  geom_segment(aes(x=45, y = 0.27, xend = 130, yend = 0.57, color = "Age 29 - 45"), size = 1.25) + 
   geom_segment(aes(x=145, y = 0.57, xend = 180, yend = 0.72, color = "Age 46 - 53"), size = 1.25) + 
   geom_segment(aes(x=195, y = 0.72, xend = 250, yend = 0.85, color = "Age 54 - 61"), size = 1.25) +
   geom_segment(aes(x=270, y = 0.85, xend = 310, yend = 0.9, color = "Age 62 - 65"), size = 1.25) + 
@@ -157,6 +157,7 @@ col_total <- sum(colSums(score_age)[2:6])
 row_sums/row_total
 col_sums/col_total 
 
+score_age$age_group<- as.numeric(score_age$age_group)
 score_age["row_sum"] <- row_sums
 score_age["row_prob"] <- row_sums/row_total
 score_age <- rbind(score_age, "col_sum" = col_sums)
@@ -164,18 +165,126 @@ score_age <- rbind(score_age, "col_prob" = col_sums/col_total)
 
 score_age
 
-# col sum and row sum 
+```
 
+######## Gender, Score, Age Contingency Table ############
+```{r}
+# gender: 1 = M, 2 = F, 3 = Other
+
+NPD_group %>% mutate(gender_score = case_when(
+  score_group == 1 & gender == 1 ~ "M1", 
+  score_group == 1 & gender == 2 ~ "F1", 
+  score_group == 1 & gender == 3 ~ "O1",
+  score_group == 2 & gender == 1 ~ "M2",
+  score_group == 2 & gender == 2 ~ "F2",
+  score_group == 2 & gender == 3 ~ "O2",
+  score_group == 3 & gender == 1 ~ "M3",
+  score_group == 3 & gender == 2 ~ "F3",
+  score_group == 3 & gender == 3 ~ "O3",
+  score_group == 4 & gender == 1 ~ "M4",
+  score_group == 4 & gender == 2 ~ "F4",
+  score_group == 4 & gender == 3 ~ "O4",
+  score_group == 5 & gender == 1 ~ "M5",
+  score_group == 5 & gender == 2 ~ "F5",
+  score_group == 5 & gender == 3 ~ "O5"
+)) %>% group_by(gender_score, age_group) %>% 
+  select(age_group, gender_score) %>%
+  count() %>%
+  pivot_wider(names_from = gender_score, values_from = n)  
+```
+
+
+Entropy Formula 
+
+$$H(X) = -\sum^{n}_{i=1} p(x_i) log_2p(x_i)  $$
+
+########### Score Entropy ##############
+```{r}
+px = col_sums/col_total
+
+-sum(px*log2(px))
+```
+
+########### Age Entropy ##############
+```{r}
+px = row_sums/row_total
+
+-sum(px*log2(px))
+```
+########## Q1, Age = 1, Score = 1 ##################
+
+```{r}
+NPD_group %>% filter(age_group == 1, score_group == 1) %>% select(Q1) %>% group_by(Q1)%>% count()
+```
+
+What does it mean if a question has a high entropy? Shouldn't all question equally add to the score?
+
+
+Q1, Score = 1
+```{r}
+NPD_group %>% filter(score_group == 1) %>% 
+  select(Q1, age_group) %>% 
+  group_by(Q1, age_group)%>% 
+  count() %>% 
+  pivot_wider(names_from = age_group, values_from = n)
+```
+
+Q1, Age = 1
+```{r}
+q1_age1 <- NPD_group %>% filter(age_group == 1) %>% 
+  select(Q1, score_group) %>% 
+  group_by(Q1, score_group)%>% 
+  count() %>% 
+  pivot_wider(names_from = score_group, values_from = n)
+
+q1_age1 
+
+row_sums <- rowSums(q1_age1)
+col_sums <- colSums(q1_age1)[2:6]
+
+row_total <- sum(rowSums(q1_age1))
+col_total <- sum(colSums(q1_age1)[2:6])
+
+paste("H(Score|Q1) for age_group = 1", row_sums/row_total)
+paste("H(Score) when age_group = 1", col_sums/col_total)
 
 
 ```
 
+########### Function to Calculate Conditional Entropy ######### 
+```{r}
+
+```
 
 
+############ Mutual Information of Q1 and Q4 [H(Q1) - H(Q1|Q4)] ################
+```{r}
+## Q1 Q4 contingency table 
+q1_q4 <- NPD_group %>% 
+  select(Q1, Q4) %>%
+  group_by(Q4, Q1) %>% 
+  count() %>% pivot_wider(names_from = Q1, values_from = n)
+
+q1_q4
+
+row_sums <- rowSums(q1_q4)
+col_sums <- colSums(q1_q4)[2:3]
+
+row_total <- sum(rowSums(q1_q4))
+col_total <- sum(colSums(q1_q4)[2:3])
+
+paste("H(Q1|Q4)", row_sums/row_total)
+paste("H(Q1)", col_sums/col_total)
+
+p_q1 <- col_sums/col_total
+p_q1_q4 <- row_sums/row_total
+
+-sum(p_q1*log2(p_q1)) - -sum(p_q1_q4*log2(p_q1_q4)) ## total for the whole table with no subsetting of score
+```
 
 
-######## Calculate Entropy ############
-
+Next Steps: 
+- If I want to include score_group, I must subset before calculating H(Q1|Q4)
 
 
 What do I want to do? (focus on age and score)
