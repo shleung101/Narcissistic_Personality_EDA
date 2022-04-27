@@ -1,0 +1,135 @@
+---
+title: "Mutual Information"
+author: "Serena Leung"
+date: "4/22/2022"
+output: html_document
+---
+```{r}
+library(readr)
+library(tidyverse)
+library(ggplot2)
+NPD <- read_csv("NPD_clean.csv")
+head(NPD)  
+```
+
+
+```{r}
+NPD_group <- NPD %>% mutate(age_group = case_when(
+        age >= 12 & age <= 28 ~ 1,
+        age >= 29 & age <= 45 ~ 2,
+        age >= 46 & age <= 53 ~ 3,
+        age >= 54 & age <= 61 ~ 4,
+        age >= 62 & age <= 65 ~ 5,
+        age >= 66 & age <= 86 ~ 6), 
+        
+        score_group = case_when(
+          score >= 0 & score <= 5 ~ 1,
+          score >= 6 & score <= 14 ~ 2,
+          score >= 15 & score <= 25 ~ 3,
+          score >= 26 & score <= 32 ~ 4,
+          score >= 33 & score <= 40 ~ 5))
+```
+
+Mutual Information 
+
+$$I(Score, Q_i) = H(Score) - H(Score|Q_i) $$
+
+Conditional Entropy
+$$H(Score|Q_i) = -\sum p(Score, Q_i)logp(Score|Q_i) $$
+
+Function to calculate conditional entropy
+```{r}
+cond_entropy <- function(Qi){
+  score_q <- NPD_group %>% 
+    select(score_group, {{Qi}}) %>%
+    group_by(score_group, !!rlang::sym((Qi))) %>% 
+    count() %>% pivot_wider(names_from = score_group, values_from = n)
+
+  # Intermediate Calculations to get P(score_group|Qi)
+  row_sums <- rowSums(score_q[2:6])     
+  row_total <- sum(rowSums(score_q[2:6] ))
+  p_score_qi <- row_sums/row_total            # P(score_group|Qi) where i = 1 - 40
+  
+  # H(score|Q4) for score = i
+  cond_entr_qi <- -sum(p_score_qi*log2(p_score_qi))
+  
+  # H(Q1|Q4=1) for score = i
+  # cond_entr_qi_1 <- -sum(p_score_qi[2]*log2(p_score_qi[2]))
+  
+  return(cond_entr_qi)
+}
+
+```
+
+
+```{r}
+asdf <- function(Qi){
+  score_q <- NPD_group %>% 
+    select(score_group, {{Qi}}) %>%
+    group_by(score_group, !!rlang::sym(Qi)) %>% 
+    count() %>% pivot_wider(names_from = score_group, values_from = n)
+  
+  print(score_q)
+  
+  row_total <- sum(rowSums(score_q[2:6]))
+  print(row_total)
+
+  p_score_qi <- score_q[,2:6]/row_total   # P(score_group|Qi) where i = 1 - 40
+
+  # print(p_score_qi)
+
+  # H(score|Q4) for score = i
+  cond_entr_qi <- -sum(p_score_qi*log2(p_score_qi))
+
+  return(cond_entr_qi)
+}
+
+asdf("Q1")
+
+# Issue: Q1 not read as a variable, creates a column of "Q1" 
+```
+
+
+
+Score_group Entropy
+```{r}
+score_df <- NPD_group %>% select(score_group) %>% group_by(score_group) %>% count()
+
+#P(score)
+p_score <- score_df$n/sum(score_df$n)
+
+score_entropy <- -sum(p_score*log2(p_score))
+
+```
+
+
+```{r}
+mutual_info <- data.frame(
+  question = seq(1,40),
+  score_entropy = rep(score_entropy, 40)
+)
+
+
+questions <- c(colnames(NPD_group)[2:41])
+qi_cond <- c()
+
+
+for (i in questions) {
+  qi_cond <- append(qi_cond, cond_entropy(i))
+}
+
+qi_cond
+
+# Add qi_cond as another column, mutate to get I(x)
+```
+
+
+```{r}
+# Add conditional entropy column
+mutual_info["cond_entr"] <- qi_cond
+
+mutual_info %>% mutate("mutual_info" = score_entropy - cond_entr) %>% arrange(desc(mutual_info))
+```
+
+
+

@@ -273,14 +273,130 @@ col_sums <- colSums(q1_q4)[2:3]
 row_total <- sum(rowSums(q1_q4))
 col_total <- sum(colSums(q1_q4)[2:3])
 
-paste("H(Q1|Q4)", row_sums/row_total)
-paste("H(Q1)", col_sums/col_total)
-
 p_q1 <- col_sums/col_total
 p_q1_q4 <- row_sums/row_total
 
+paste("H(Q1|Q4)", -sum(p_q1_q4*log2(p_q1_q4)))
+paste("H(Q1)", -sum(p_q1*log2(p_q1)))
+
+
+# H(Q1) - H(Q1|Q4)
 -sum(p_q1*log2(p_q1)) - -sum(p_q1_q4*log2(p_q1_q4)) ## total for the whole table with no subsetting of score
 ```
+
+If I want to create a graph that shoes H(Q1|Q4) subsetted by score, then I need to subset by score before calculating the conditional entropy
+```{r}
+# Calculating H(Q1|Q4) 
+
+#score_group == 1 
+score_1 <- NPD_group %>% 
+  filter(score_group == 1) %>%
+  select(Q1, Q4) %>%
+  group_by(Q4, Q1) %>% 
+  count() %>% pivot_wider(names_from = Q1, values_from = n)
+
+row_sums <- rowSums(score_1)
+row_total <- sum(rowSums(score_1))
+p_q1_q4 <- row_sums/row_total
+
+paste("H(Q1|Q4=0) for score = 1", -sum(p_q1_q4[1]*log2(p_q1_q4[1])))
+paste("H(Q1|Q4=1) for score = 1", -sum(p_q1_q4[2]*log2(p_q1_q4[2])))
+
+
+
+##### Score_group == 2 
+score_2 <- NPD_group %>% 
+  filter(score_group == 2) %>%
+  select(Q1, Q4) %>%
+  group_by(Q4, Q1) %>% 
+  count() %>% pivot_wider(names_from = Q1, values_from = n)
+
+row_sums <- rowSums(score_2)
+row_total <- sum(rowSums(score_2))
+p_q1_q4 <- row_sums/row_total
+
+paste("H(Q1|Q4=0) for score = 2", -sum(p_q1_q4[1]*log2(p_q1_q4[1])))
+paste("H(Q1|Q4=1) for score = 2", -sum(p_q1_q4[2]*log2(p_q1_q4[2])))
+
+
+```
+Function to calculate conditional entropy
+```{r}
+cond_entropy <- function(score_i, QA, QB){
+  q1_q4_score_i <- NPD_group %>% 
+  filter(score_group == score_i) %>%
+  select({{QA}}, {{QB}}) %>%
+  group_by({{QA}}, {{QB}}) %>% 
+  count() %>% pivot_wider(names_from = {{QA}}, values_from = n)
+
+  # Intermediate Calculations to get P(Q1|Q4 = k)
+  row_sums <- rowSums(q1_q4_score_i)       
+  row_total <- sum(rowSums(q1_q4_score_i))
+  p_q1_q4 <- row_sums/row_total            # P(Q1|Q4 = k) where k = 0,1
+  
+  # H(Q1|Q4=0) for score = i
+  cond_entr_q4_0 <- -sum(p_q1_q4[1]*log2(p_q1_q4[1]))
+  
+  # H(Q1|Q4=1) for score = i
+  cond_entr_q4_1 <- -sum(p_q1_q4[2]*log2(p_q1_q4[2]))
+  
+  return(c(cond_entr_q4_0, cond_entr_q4_1))
+}
+
+```
+
+
+```{r}
+asdf <- function(QA_colnum, QB_colnum){
+  NPD_group %>% select({{QA_colnum}}, {{QB_colnum}}) %>% 
+    group_by({{QA_colnum}}) %>% count()
+}
+
+asdf(Q1, Q4)
+```
+
+
+
+```{r}
+# Create a dataframe, for every loop over score_group, append a new row for conditional entropy
+
+# Create dataframe
+
+# Initializing an empty dataframe with labeled columns
+columns <- c("score", "H(Q1|Q4=0)", "H(Q1|Q4=1)")
+cond_q1_q4 <- data.frame(matrix(ncol = length(columns), nrow = 5))
+colnames(cond_q1_q4) <- c("score", "H(Q1|Q4=0)", "H(Q1|Q4=1)")
+
+
+
+# For loop 
+
+for (j in seq(1,5)) {
+  # Bind a new row (conditional entropy when Q4 = 0 and Q4= 1) to cond_q1_q4 df when we iterate through each score
+  cond_q1_q4[j,] <- c(j, cond_entropy(j, Q1, Q4))
+}
+
+cond_q1_q4
+
+# Pivot cond_q1_q4 into long format so we use it to plot 
+
+long_df <- cond_q1_q4 %>% pivot_longer(cols = c("H(Q1|Q4=0)", "H(Q1|Q4=1)"), 
+                            names_to = "Answer_Value", 
+                            values_to = "Cond_Entropy") %>% 
+  mutate(Answer_Value = case_when(
+    grepl("0", Answer_Value) ~ "0", 
+    grepl("1", Answer_Value) ~ "1"
+  ))
+  
+
+# Plot conditional entropies 
+
+ggplot(long_df, aes(x = Answer_Value, y = Cond_Entropy, color = factor(score))) +
+  geom_point(size = 4) 
+
+```
+
+
 
 
 Next Steps: 
