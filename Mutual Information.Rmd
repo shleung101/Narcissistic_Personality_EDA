@@ -39,66 +39,160 @@ $$H(Score|Q_i) = -\sum p(Score, Q_i)logp(Score|Q_i) $$
 
 Function to calculate conditional entropy
 ```{r}
-cond_entropy <- function(Qi){
-  score_q <- NPD_group %>% 
-    select(score_group, {{Qi}}) %>%
-    group_by(score_group, !!rlang::sym((Qi))) %>% 
-    count() %>% pivot_wider(names_from = score_group, values_from = n)
-
-  # Intermediate Calculations to get P(score_group|Qi)
-  row_sums <- rowSums(score_q[2:6])     
-  row_total <- sum(rowSums(score_q[2:6] ))
-  p_score_qi <- row_sums/row_total            # P(score_group|Qi) where i = 1 - 40
-  
-  # H(score|Q4) for score = i
-  cond_entr_qi <- -sum(p_score_qi*log2(p_score_qi))
-  
-  # H(Q1|Q4=1) for score = i
-  # cond_entr_qi_1 <- -sum(p_score_qi[2]*log2(p_score_qi[2]))
-  
-  return(cond_entr_qi)
+# Function used inside main function 
+# Calculating elements of the conditional matrix 
+calc_cond <- function(i,j, joint_mt){
+  # i = row, j = column 
+  # dividing probability by total probability of that row
+  return(joint_mt[i,j]/sum(joint_mt[i,]))
 }
+
+
+cond_entropy <- function(Qj){
+  
+  # H(Qi|Qj)
+
+  # Selecting data from df and convert into a matrix
+  count_mt <- NPD %>% 
+    select(score, {{Qj}}) %>% 
+    group_by(score, !!rlang::sym((Qj))) %>% 
+    count() %>% 
+    pivot_wider(names_from = score, values_from = n) %>% 
+    replace(is.na(.), 0) %>%
+    as.matrix()
+  
+  # Count matrix that contains counts of each subset
+  count_mt <- count_mt[,-1]
+ 
+  # Joint probability matrix
+  joint_mt <- count_mt/sum(count_mt) 
+  
+  # Calculating elements of the conditional matrix 
+  calc_cond <- function(i,j, joint_mt){
+    # i = row, j = column 
+    # dividing probability by total probability of that row
+    return(joint_mt[i,j]/sum(joint_mt[i,]))
+  }
+  
+  
+  # Forming the conditional probablity matrix
+  
+  # Calculating the conditional probability values
+  
+  cond_prob_values <- c()
+  
+  for (response in c(1,2)) {  # either 0 or 1 response
+    for (score_val in seq(1,40)) {
+      cond_prob_values <- append(cond_prob_values, calc_cond(response, score_val, joint_mt))
+    }
+  }
+  # Creating conditional probability matrix
+  cond_mt <- matrix(cond_prob_values, byrow = TRUE, nrow = 2)
+  
+  
+  # Calculating Conditional Entropy H(Q1|Q2 = 0)
+  # given_0 <- -(joint_mt[1,1]*log2(cond_mt[1,1]) + joint_mt[1,2]*log2(cond_mt[1,2]))
+  # 
+  # given_1 <- -(joint_mt[2,1]*log2(cond_mt[2,1]) + joint_mt[2,2]*log2(cond_mt[2,2]))
+  
+  
+  # Calculating Conditional Entropy 
+  cond_entr_val <- 0
+  
+  for (response in c(1,2)) {  # either 0 or 1 response
+    for (score_val in seq(1,40)) {
+      # Sum all conditional entropies together
+      cond_entr_val <- append(cond_entr_val, -(joint_mt[response, score_val]*log2(cond_mt[response, score_val])))
+    }
+  }
+  
+  return(list("Qj" = Qj, "count_mt" = count_mt, "joint_mt" = joint_mt, 
+              "cond_mt" = cond_mt,
+              "cond_entr" = sum(cond_entr_val, na.rm = TRUE)))
+}
+
+
+cond_entropy("Q2")
 
 ```
 
 
+
+Testing (IT WORKS!!!)
 ```{r}
-asdf <- function(Qi){
-  score_q <- NPD_group %>% 
-    select(score_group, {{Qi}}) %>%
-    group_by(score_group, !!rlang::sym(Qi)) %>% 
-    count() %>% pivot_wider(names_from = score_group, values_from = n)
+
+count_mt <- NPD %>% 
+    select(score, Q2) %>% 
+    group_by(score, Q2) %>% 
+    count() %>% 
+    pivot_wider(names_from = score, values_from = n) %>% 
+    replace_na(list("0" = 0, "40" = 0)) %>%
+    as.matrix()
   
-  print(score_q)
+  # Count matrix that contains counts of each subset
+  count_mt <- count_mt[,-1]
   
-  row_total <- sum(rowSums(score_q[2:6]))
-  print(row_total)
+count_mt
+  
+# Joint probability matrix
+joint_mt <- count_mt/sum(count_mt) 
+  
+joint_mt  
 
-  p_score_qi <- score_q[,2:6]/row_total   # P(score_group|Qi) where i = 1 - 40
+# sum(joint_mt[2,]) 
 
-  # print(p_score_qi)
 
-  # H(score|Q4) for score = i
-  cond_entr_qi <- -sum(p_score_qi*log2(p_score_qi))
+# Create for loop that will calculate the conditional entropy values
+cond_prob_values <- c()
 
-  return(cond_entr_qi)
+for (response in c(1,2)) {  # either 0 or 1 response
+  for (score_val in seq(1,40)) {
+    cond_prob_values <- append(cond_prob_values, calc_cond(response, score_val, joint_mt))
+  }
 }
 
-asdf("Q1")
+# cond_prob_values <- append(cond_prob_values, FALSE, after = 40)
+# cond_prob_values  
 
-# Issue: Q1 not read as a variable, creates a column of "Q1" 
+# Forming the conditional matrix
+cond_mt <- matrix(cond_prob_values, byrow = TRUE, nrow = 2)
+
+cond_mt
+  
+
+
+value <- 0
+
+for (response in c(1,2)) {  # either 0 or 1 response
+  for (score_val in seq(1,40)) {
+    # Sum all conditional entropies together
+    value <- append(value, -(joint_mt[response, score_val]*log2(cond_mt[response, score_val])))
+  }
+}
+
+# value
+
+sum(value, na.rm = TRUE)
+
 ```
+
 
 
 
 Score_group Entropy
 ```{r}
-score_df <- NPD_group %>% select(score_group) %>% group_by(score_group) %>% count()
+score_df <- NPD %>% select(score) %>% group_by(score) %>% count()
+
+score_df 
 
 #P(score)
 p_score <- score_df$n/sum(score_df$n)
 
+p_score
+
 score_entropy <- -sum(p_score*log2(p_score))
+
+score_entropy
 
 ```
 
@@ -115,7 +209,7 @@ qi_cond <- c()
 
 
 for (i in questions) {
-  qi_cond <- append(qi_cond, cond_entropy(i))
+  qi_cond <- append(qi_cond, cond_entropy(i)$cond_entr)
 }
 
 qi_cond
@@ -130,6 +224,8 @@ mutual_info["cond_entr"] <- qi_cond
 
 mutual_info %>% mutate("mutual_info" = score_entropy - cond_entr) %>% arrange(desc(mutual_info))
 ```
+
+
 
 
 

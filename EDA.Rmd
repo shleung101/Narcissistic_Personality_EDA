@@ -141,6 +141,9 @@ NPD_group %>% filter(is.na(age), is.na(score))
 Trying to create a contingency table with sums and probability
 
 ```{r}
+library(formattable)
+library(htmltools)
+
 score_age <- NPD_group %>% select(age_group, score_group) %>% 
   group_by(age_group, score_group) %>% 
   count() %>%
@@ -148,24 +151,29 @@ score_age <- NPD_group %>% select(age_group, score_group) %>%
 
 score_age
 
-row_sums <- rowSums(score_age)
-col_sums <- colSums(score_age)[2:6]
 
-row_total <- sum(rowSums(score_age))
-col_total <- sum(colSums(score_age)[2:6])
-
-row_sums/row_total
-col_sums/col_total 
-
-score_age$age_group<- as.numeric(score_age$age_group)
-score_age["row_sum"] <- row_sums
-score_age["row_prob"] <- row_sums/row_total
-score_age <- rbind(score_age, "col_sum" = col_sums)
-score_age <- rbind(score_age, "col_prob" = col_sums/col_total)
-
-score_age
+# row_sums <- rowSums(score_age)
+# col_sums <- colSums(score_age)[2:6]
+# 
+# row_total <- sum(rowSums(score_age))
+# col_total <- sum(colSums(score_age)[2:6])
+# 
+# row_sums/row_total
+# col_sums/col_total 
+# 
+# score_age$age_group<- as.numeric(score_age$age_group)
+# score_age["row_sum"] <- row_sums
+# score_age["row_prob"] <- row_sums/row_total
+# score_age <- rbind(score_age, "col_sum" = col_sums)
+# score_age <- rbind(score_age, "col_prob" = col_sums/col_total)
+# 
+# score_age
 
 ```
+
+
+
+
 
 ######## Gender, Score, Age Contingency Table ############
 ```{r}
@@ -320,7 +328,7 @@ paste("H(Q1|Q4=1) for score = 2", -sum(p_q1_q4[2]*log2(p_q1_q4[2])))
 
 
 ```
-Function to calculate conditional entropy
+Function to calculate conditional entropy (subset by 0 and 1)
 ```{r}
 cond_entropy <- function(score_i, QA, QB){
   q1_q4_score_i <- NPD_group %>% 

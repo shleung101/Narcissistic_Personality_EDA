@@ -1,0 +1,213 @@
+---
+title: "Conditional Entropy Qs"
+author: "Serena Leung"
+date: "4/30/2022"
+output: html_document
+---
+
+```{r}
+library(readr)
+library(tidyverse)
+library(ggplot2)
+NPD <- read_csv("NPD_clean.csv")
+head(NPD)  
+
+
+library(readxl)
+q_char <- read_excel("Question Rankings.xlsx")
+q_char
+
+```
+
+Men Q cluster 
+```{r}
+men_q <- data.frame("question" = c("Q5","Q9","Q12","Q14","Q24","Q25","Q27","Q39","Q40")) %>% left_join(q_char, by = c("question" = "q_col")) %>% select(-c(q_num))
+
+men_q
+```
+
+
+Women Q cluster
+```{r}
+women_q <- c("Q4","Q15","Q19","Q26","Q28","Q29","Q37","Q38")
+
+women <- data.frame("question" = c("Q4","Q15","Q19","Q26","Q28","Q29","Q37","Q38")) %>% left_join(q_char, by = c("question" = "q_col")) %>% select(-c(q_num))
+
+```
+
+
+Create for loop that will calculate the conditional entropy + plot 
+color code by gender 
+
+```{r}
+# Function used inside main function 
+# Calculating elements of the conditional matrix 
+calc_cond <- function(i,j){
+  # i = row, j = column 
+  # dividing probability by total probability of that row
+  return(joint_mt[i,j]/sum(joint_mt[i,]))
+}
+
+
+cond_entropy <- function(Qi, Qj, sex){
+  
+  # H(Qi|Qj)
+
+  # Selecting data from df and convert into a matrix
+  count_mt <- NPD %>% 
+    filter(gender == sex) %>%
+    select({{Qi}}, {{Qj}}) %>% 
+    group_by(!!rlang::sym((Qi)), !!rlang::sym((Qj))) %>% 
+    count() %>% 
+    pivot_wider(names_from = {{Qi}}, values_from = n) %>%
+    as.matrix()
+  
+  # Count matrix that contains counts of each subset
+  count_mt <- count_mt[,-1]
+ 
+  # Joint probability matrix
+  joint_mt <- count_mt/sum(count_mt) 
+  
+   
+  # Calculating elements of the conditional matrix 
+  calc_cond <- function(i,j){
+    # i = row, j = column 
+    # dividing probability by total probability of that row
+    return(joint_mt[i,j]/sum(joint_mt[i,]))
+  }
+    
+  
+  # Forming the conditional matrix
+  cond_mt <- matrix(c(calc_cond(1,1),  calc_cond(2,1), calc_cond(1,2), calc_cond(2,2)), nrow = 2 )
+  
+  
+  # Calculating Conditional Entropy H(Q1|Q2 = 0)
+  given_0 <- -(joint_mt[1,1]*log2(cond_mt[1,1]) + joint_mt[1,2]*log2(cond_mt[1,2]))
+  
+  given_1 <- -(joint_mt[2,1]*log2(cond_mt[2,1]) + joint_mt[2,2]*log2(cond_mt[2,2]))
+  
+  return(list("Qi" = Qi, "Qj" = Qj, "count_mt" = count_mt, "joint_mt" = joint_mt, 
+              "cond_mt" = cond_mt,"given_0" = given_0, 
+              "given_1" = given_1))
+}
+
+cond_entropy("Q1", "Q2", 1)
+
+```
+
+
+
+
+```{r}
+# Create dataframe
+
+# Initializing an empty dataframe with labeled columns
+columns <- c("Q4", "Cond_q", "Gender", "Cond_entr_0", "Cond_entr_1")
+women_cond_q4 <- data.frame(matrix(ncol = length(columns), nrow = 0))
+colnames(women_cond_q4) <- c("Q4", "Cond_q", "Gender", "Cond_entr_0", "Cond_entr_1")
+
+
+women_q <- c("Q4","Q15","Q19","Q26","Q28","Q29","Q37","Q38")
+
+# women_cond_q4[1,] <- cond_entropy("Q1", "Q2", 2)
+
+
+# For loop 
+
+for (i in seq(2,8)){
+  for (k in c(1,2)) {  # gender male = 1, female = 2
+    
+    # Bind a new row to women_cond_q4 df when we iterate through each combination of gender and questions
+    cond_obj <- cond_entropy(women_q[1], women_q[i], k)
+    
+    women_cond_q4[nrow(women_cond_q4)+1,]<- c(cond_obj$Qi, cond_obj$Qj, k, cond_obj$given_0, cond_obj$given_1)
+  }
+}
+
+women_cond_q4
+
+```
+
+
+```{r}
+#H(Q4|Qw)
+
+# dataframe for women
+q4_qw <- women_cond_q4 %>% pivot_longer(c("Cond_entr_0", "Cond_entr_1"), names_prefix = "Cond_entr_",  names_to = "Nar_Response", values_to = "Cond_entr")
+
+q4_qw
+
+ggplot(q4_qw, aes(x = Nar_Response, y = as.numeric(Cond_entr), color = Gender)) +
+  geom_point() +
+  facet_wrap(~Cond_q, nrow = 2) +
+  labs(title = "Female Narcissistic Questions")+
+  ylab("H(Q4|Qi)") + 
+  xlab("Response") +
+  scale_color_manual(labels = c("Male", "Female"), values = c("#619CFF", "#F8766D"))
+```
+
+
+
+
+
+Male Questions
+
+```{r}
+# Create dataframe
+
+# Initializing an empty dataframe with labeled columns
+columns <- c("Q5", "Cond_q", "Gender", "Cond_entr_0", "Cond_entr_1")
+men_cond_q5 <- data.frame(matrix(ncol = length(columns), nrow = 0))
+colnames(men_cond_q5) <- c("Q5", "Cond_q", "Gender", "Cond_entr_0", "Cond_entr_1")
+
+
+men_q <- c("Q5","Q9","Q12","Q14","Q24","Q25","Q27","Q39","Q40")
+
+
+# For loop 
+
+for (i in seq(2,8)){
+  for (k in c(1,2)) {  # gender male = 1, female = 2
+    
+    # Bind a new row to men_cond_q5 df when we iterate through each combination of gender and questions
+    cond_obj <- cond_entropy(men_q[1], men_q[i], k)
+    
+    men_cond_q5[nrow(men_cond_q5)+1,]<- c(cond_obj$Qi, cond_obj$Qj, k, cond_obj$given_0, cond_obj$given_1)
+  }
+}
+
+men_cond_q5
+
+```
+
+```{r}
+#H(Q5|Qm)
+
+# creating the dataframe
+q5_qm <- men_cond_q5 %>% pivot_longer(c("Cond_entr_0", "Cond_entr_1"), names_prefix = "Cond_entr_",  names_to = "Nar_Response", values_to = "Cond_entr")
+
+q5_qm
+#### YOU NEED TO FIGURE OUT THE PLOT
+ggplot(q5_qm, aes(x = Nar_Response, y = as.numeric(Cond_entr), color = Gender)) +
+  geom_point() +
+  facet_wrap(~Cond_q, nrow = 2) +
+  labs(title = "Male Narcissistic Questions", y = "H(Q5|Qi)") + 
+  xlab("Response") +
+  scale_color_manual(labels = c("Male", "Female"), values = c("#619CFF", "#F8766D"))
+```
+
+
+
+```{r}
+library(ggExtra)
+
+plot <- ggplot(NPD, aes(x = score, y = age, col = factor(gender)) ) + 
+  geom_point() +
+  labs(title = "Relationship Between Age, Score, and Gender", color = "Gender")
+
+ggMarginal(plot, type="histogram",
+           groupColour = TRUE, groupFill = TRUE )
+
+```
+
+
